@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tic-Tac-Toe.</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      text-align: center;
+      padding: 50px;
+      color: #333; /* Default text color for light mode */
+    }
+    body.dark-mode {
+      background: #282c34;
+      color: #f0f4f8;
+    }
+    h1 { color: #333; }
+    body.dark-mode h1 {
+      color: #f0f4f8;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 80px);
+      grid-gap: 10px;
+      margin: 30px auto;
+      width: 270px;
+    }.cell {
+      width: 80px;
+      height: 80px;
+      font-size: 2.5em;
+      background: #fff;
+      border: 2px solid #007bff;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    body.dark-mode .cell {
+      background: #3a3f4a;
+      border-color: #61dafb;
+    }
+    .cell:hover { background: #e6f0ff; }
+    body.dark-mode .cell:hover {
+      background: #4a505c;
+    }
+    /* Style for user's symbol */
+    .cell.user-symbol {
+      color: red;
+    }
+    #status {
+      margin-top: 25px;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #007bff;
+    }
+    body.dark-mode #status {
+      color: #61dafb;
+    }
+    button {
+      margin-top: 30px;
+      padding: 12px 25px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover { background: #0056b3; }
+    #player-choice {
+      margin-bottom: 20px;
+    }
+    #player-choice button {
+      margin: 0 10px;
+      background-color: #28a745;
+    }
+    #player-choice button:hover {
+      background-color: #218838;
+    }
+    #game-container {
+      display: none; /* Hidden until player chooses a symbol */
+    }
+    #scoreboard {
+      margin-top: 20px;
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #333;
+    }
+    body.dark-mode #scoreboard {
+      color: #f0f4f8;
+    }
+    #mode-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: #6c757d;
+      color: white;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1.2em; /* Adjust symbol size */
+    }
+    #mode-toggle:hover {
+      background-color: #5a6268;
+    }
+  </style>
+</head>
+<body>
+
+  <button id="mode-toggle" onclick="toggleDarkMode()">🌙</button>
+
+  <h1>🎮❌ Tic-Tac-Toe ⭕🎮<br>
+          🎮❌ You V/S Computer ⭕🎮</h1>
+
+  <div id="player-choice">
+    <p>Choose your symbol:</p>
+    <button onclick="setPlayerSymbol('X')">Play as ❌</button>
+    <button onclick="setPlayerSymbol('O')">Play as ⭕</button>
+  </div>
+
+  <div id="game-container">
+    <div id="scoreboard">
+      Round <span id="current-round">1</span> of 5 | You: <span id="user-score">0</span> | Computer: <span id="computer-score">0</span> | Draws: <span id="draw-score">0</span>
+    </div>
+    <div id="board"></div>
+    <div id="status"></div>
+    <button onclick="resetGame()">Reset game.</button>
+  </div>
+
+  <script>
+    const boardDiv = document.getElementById('board');
+    const statusDiv = document.getElementById('status');
+    const playerChoiceDiv = document.getElementById('player-choice');
+    const gameContainerDiv = document.getElementById('game-container');
+    const currentRoundSpan = document.getElementById('current-round');
+    const userScoreSpan = document.getElementById('user-score');
+    const computerScoreSpan = document.getElementById('computer-score');
+    const drawScoreSpan = document.getElementById('draw-score');
+    const modeToggleButton = document.getElementById('mode-toggle');
+
+    let board, gameOver, userSymbol, computerSymbol;
+    let userWins = 0;
+    let computerWins = 0;
+    let draws = 0;
+    let currentRound = 1;
+    const totalRounds = 5;
+    const winConditions = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+      [0, 4, 8], [2, 4, 6]             // Diagonals
+    ];
+
+    function setPlayerSymbol(symbol) {
+      userSymbol = symbol;
+      computerSymbol = (symbol === 'X') ? 'O' : 'X';
+      playerChoiceDiv.style.display = 'none';
+      gameContainerDiv.style.display = 'block';
+      resetScores();
+      startNewRound();
+    }
+
+    function initBoard() {
+      board = Array(9).fill('');
+      gameOver = false;
+      boardDiv.innerHTML = '';
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.index = i;
+        cell.onclick = () => userMove(i);
+        boardDiv.appendChild(cell);
+      }
+      statusDiv.textContent = "Your turn!"; // User always starts first
+      updateScoreboard();
+    }
+
+    function userMove(index) {
+      if (gameOver || board[index]) return;
+      board[index] = userSymbol;
+      updateBoard();
+      if (checkWinner(userSymbol)) {
+        statusDiv.textContent = "You win 🎉!";
+        userWins++;
+        gameOver = true;
+        endRound();
+        return;
+      }
+      if (board.every(cell => cell)) {
+        statusDiv.textContent = "It's a draw!";
+        draws++;
+        gameOver = true;
+        endRound();
+        return;
+      }
+      statusDiv.textContent = "Computer's turn.";
+      setTimeout(computerMove, 500);
+    }
+
+    function computerMove() {
+      if (gameOver) return;
+      let move = getBestMove();
+      board[move] = computerSymbol;
+      updateBoard();
+      if (checkWinner(computerSymbol)) {
+        statusDiv.textContent = "Computer wins 😅!";
+        computerWins++;
+        gameOver = true;
+        endRound();
+        return;
+      }
+      if (board.every(cell => cell)) {
+        statusDiv.textContent = "It's a draw!";
+        draws++;
+        gameOver = true;
+        endRound();
+        return;
+      }
+      statusDiv.textContent = "Your turn!";
+    }
+
+    function getBestMove() {
+      // 1. Check if computer can win
+      for (let i = 0; i < 9; i++) {
+        if (board[i] === '') {
+          board[i] = computerSymbol;
+          if (checkWinner(computerSymbol)) {
+            board[i] = ''; // Reset the board
+            return i;
+          }
+          board[i] = ''; // Reset the board
+        }
+      }
+
+      // 2. Check if user can win and block
+      for (let i = 0; i < 9; i++) {
+        if (board[i] === '') {
+          board[i] = userSymbol;
+          if (checkWinner(userSymbol)) {
+            board[i] = ''; // Reset the board
+            return i;
+          }
+          board[i] = ''; // Reset the board
+        }
+      }
+
+      // 3. Take the center if available
+      if (board[4] === '') {
+        return 4;
+      }
+
+      // 4. Take a corner if available
+      const corners = [0, 2, 6, 8];
+      for (let corner of corners) {
+        if (board[corner] === '') {
+          return corner;
+        }
+      }
+
+      // 5. Take any available side
+      const sides = [1, 3, 5, 7];
+      for (let side of sides) {
+        if (board[side] === '') {
+          return side;
+        }
+      }
+
+      // Fallback: This should ideally not be reached in a valid game.
+      // If it is, it means no moves are left or an edge case was missed.
+      return -1;
+    }
+
+    function updateBoard() {
+      for (let i = 0; i < 9; i++) {
+        const cellElement = boardDiv.children[i];
+        cellElement.textContent = board[i];
+        if (board[i] === userSymbol) {
+          cellElement.classList.add('user-symbol');
+        } else {
+          cellElement.classList.remove('user-symbol');
+        }
+      }
+    }
+
+    function checkWinner(player) {
+      return winConditions.some(line => line.every(i => board[i] === player));
+    }
+
+    function updateScoreboard() {
+      currentRoundSpan.textContent = currentRound;
+      userScoreSpan.textContent = userWins;
+      computerScoreSpan.textContent = computerWins;
+      drawScoreSpan.textContent = draws;
+    }
+
+    function endRound() {
+      updateScoreboard();
+      if (currentRound < totalRounds) {
+        currentRound++;
+        setTimeout(startNewRound, 4000); // Start next round after 2 seconds
+      } else {
+        setTimeout(showOverallWinner, 1000); // Show overall winner after all rounds
+      }
+    }
+
+    function startNewRound() {
+      initBoard();
+    }
+
+    function showOverallWinner() {
+      let finalMessage = "";
+      if (userWins > computerWins) {
+        finalMessage = `Game Over! You win the series with ${userWins} wins 🎉!`;
+      } else if (computerWins > userWins) {
+        finalMessage = `Game Over! Computer wins the series with ${computerWins} wins 😅!`;
+      } else {
+        finalMessage = "Game Over! The series is a draw!";
+      }
+      statusDiv.textContent = finalMessage;
+    }
+
+    function resetScores() {
+      userWins = 0;
+      computerWins = 0;
+      draws = 0;
+      currentRound = 1;
+    }
+
+    function resetGame() {
+      playerChoiceDiv.style.display = 'block'; // Show choice again
+      gameContainerDiv.style.display = 'none'; // Hide game
+      boardDiv.innerHTML = ''; // Clear the board display
+      statusDiv.textContent = ''; // Clear status
+      userSymbol = null;
+      computerSymbol = null;
+      resetScores();
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+      if (document.body.classList.contains('dark-mode')) {
+        modeToggleButton.textContent = '☀️'; // Sun symbol for light mode
+      } else {
+        modeToggleButton.textContent = '🌙'; // Moon symbol for dark mode
+      }
+    }
+  </script>
+
+</body>
+</html>
